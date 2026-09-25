@@ -42,11 +42,14 @@ RUN cmake -S . -B build \
       -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
       -DLLAMA_CURL=OFF \
       -DLLAMA_BUILD_TESTS=OFF \
+      -DLLAMA_BUILD_EXAMPLES=OFF \
+      -DLLAMA_TOOLS_INSTALL=OFF \
       -DLLAMA_BUILD_UI=OFF \
       -DLLAMA_USE_PREBUILT_UI=OFF \
       -DCMAKE_BUILD_TYPE=Release \
     && cmake --build build --target llama-server --config Release -j"${BUILD_JOBS}" \
-    && cmake --install build --prefix /opt/llama
+    && cmake --install build --prefix /opt/llama \
+    && install -D -m 0755 build/bin/libllama-server-impl.so /opt/llama/lib/libllama-server-impl.so
 
 FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS model
 ARG MODEL_REPO
