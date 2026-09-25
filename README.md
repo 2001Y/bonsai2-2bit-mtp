@@ -52,7 +52,7 @@ docker buildx build \
   .
 ```
 
-`CUDA_ARCHS` defaults to `75;80;86;89;90;100;120` (Turing through Blackwell targets supported by the selected CUDA toolkit). Build only the architectures you need to reduce compile time and image size; shell-quote values containing semicolons. The model publisher reports `sm_86` testing, so the example uses that architecture but does not imply other GPU support.
+`CUDA_ARCHS` defaults to `75;80;86;89;90;100;120` (Turing through Blackwell targets supported by the selected CUDA toolkit). Build only the architectures you need to reduce compile time and image size; shell-quote values containing semicolons. `BUILD_JOBS` defaults to `4`; lower it for emulated or memory-constrained builds and raise it only when the builder has headroom. The model publisher reports `sm_86` testing, so the example uses that architecture but does not imply other GPU support.
 
 The build downloads the model and patch from the pinned Hugging Face revision and fails if either checksum differs. No model file, Hugging Face token, RunPod key, or registry credential belongs in the repository. The final image contains the model weights; treat it as a model distribution and secure the registry accordingly. Confirm the model license and registry terms before distributing an image.
 
@@ -91,7 +91,7 @@ The worker accepts `input.messages` in OpenAI Chat Completions form, or a shorth
 | `LLAMA_PORT` | `8080` | Internal loopback port between the worker and llama-server; not a public endpoint. |
 | `MODEL_PATH` | baked GGUF path | Override only when supplying a model at that path yourself. |
 
-Build-time artifact inputs (`MODEL_REPO`, `MODEL_REVISION`, `MODEL_FILENAME`, `MODEL_SHA256`, `PATCH_SHA256`, `LLAMA_REF`, `LLAMA_COMMIT`, `CUDA_VERSION`, and `CUDA_ARCHS`) are declared in the Dockerfile. If you change a model revision or runtime ref, update and verify its corresponding commit/checksum values together.
+Build-time artifact inputs (`MODEL_REPO`, `MODEL_REVISION`, `MODEL_FILENAME`, `MODEL_SHA256`, `PATCH_SHA256`, `LLAMA_REF`, `LLAMA_COMMIT`, `CUDA_VERSION`, `CUDA_ARCHS`, and `BUILD_JOBS`) are declared in the Dockerfile. If you change a model revision or runtime ref, update and verify its corresponding commit/checksum values together.
 
 ## Development and tests
 

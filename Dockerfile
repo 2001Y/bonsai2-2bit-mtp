@@ -13,6 +13,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04 AS llama-builder
 ARG LLAMA_REF=prism-b10687-5d80cff
 ARG LLAMA_COMMIT=5d80cff0b8cb9f2bf823cfc4e71e3abb97f290d6
 ARG CUDA_ARCHS="75;80;86;89;90;100;120"
+ARG BUILD_JOBS=4
 ARG MODEL_REPO
 ARG MODEL_REVISION
 ARG PATCH_SHA256
@@ -39,11 +40,13 @@ RUN cmake -S . -B build \
       -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHS}" \
       -DLLAMA_CURL=OFF \
       -DLLAMA_BUILD_TESTS=OFF \
+      -DLLAMA_BUILD_UI=OFF \
+      -DLLAMA_USE_PREBUILT_UI=OFF \
       -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build --target llama-server --config Release -j"$(nproc)" \
+    && cmake --build build --target llama-server --config Release -j"${BUILD_JOBS}" \
     && cmake --install build --prefix /opt/llama
 
-FROM ubuntu:24.04 AS model
+FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS model
 ARG MODEL_REPO
 ARG MODEL_REVISION
 ARG MODEL_FILENAME
