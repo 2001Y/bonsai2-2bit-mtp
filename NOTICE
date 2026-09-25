@@ -1,0 +1,17 @@
+Bonsai 2 27B MTP — third-party notices
+
+This project builds a container that includes or retrieves third-party artifacts. Their names, publishers, and upstream licensing statements are listed below. The project LICENSE applies to the original worker source and project-authored files; it does not replace the separate terms governing third-party artifacts.
+
+Model weights and MTP patch
+- Model: BoldingBuilds/Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP-GGUF
+- Pinned revision: 25bdc69496884b958428e722e2c3d15bf0e3857d
+- The upstream model card declares Apache-2.0 and attributes the base model to PrismML's Ternary Bonsai 2, the MTP head to Qwen, and the MTP recipe to its credited contributors. See the pinned model card for full attribution and terms:
+  https://huggingface.co/BoldingBuilds/Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP-GGUF/blob/25bdc69496884b958428e722e2c3d15bf0e3857d/README.md
+- The model card states that refusal behavior has been removed. See its Safety section before deployment.
+
+Inference runtime
+- PrismML-Eng/llama.cpp, tag prism-b10687-5d80cff, commit 5d80cff0b8cb9f2bf823cfc4e71e3abb97f290d6; upstream license: MIT.
+  https://github.com/PrismML-Eng/llama.cpp/tree/5d80cff0b8cb9f2bf823cfc4e71e3abb97f290d6
+- The build copies the pinned runtime's LICENSE into `/licenses/llama.cpp-MIT.txt` in the image.
+
+The exact pinned model revision and runtime source are recorded in the Dockerfile. Consult the upstream license and model card when redistributing the resulting container image.

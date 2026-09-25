@@ -1,0 +1,20 @@
+[project]
+name = "bonsai2-2bit-mtp"
+version = "0.1.0"
+description = "RunPod Serverless worker for the Ternary Bonsai 2 27B MTP GGUF model"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.34.2",
+    "runpod>=1.12.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
