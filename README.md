@@ -52,7 +52,7 @@ docker buildx build \
   .
 ```
 
-`CUDA_ARCHS` defaults to `75;80;86;89;90;100;120` (Turing through Blackwell targets supported by the selected CUDA toolkit). Build only the architectures you need to reduce compile time and image size; shell-quote values containing semicolons. `BUILD_JOBS` defaults to `4`; lower it for emulated or memory-constrained builds and raise it only when the builder has headroom. The model publisher reports `sm_86` testing, so the example uses that architecture but does not imply other GPU support.
+`CUDA_ARCHS` defaults to `86` for the RTX 3090 (`sm_86`) selected for this endpoint. This narrows CUDA compilation and the resulting binaries; it does not establish compatibility with other GPU architectures. Override the build argument and test the target GPU before switching hardware. Shell-quote values containing semicolons. `BUILD_JOBS` defaults to `4`; lower it for emulated or memory-constrained builders and raise it only when the builder has headroom.
 
 The build downloads the model and patch from the pinned Hugging Face revision and fails if either checksum differs. No model file, Hugging Face token, RunPod key, or registry credential belongs in the repository. The final image contains the model weights; treat it as a model distribution and secure the registry accordingly. Confirm the model license and registry terms before distributing an image.
 

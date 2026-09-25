@@ -12,7 +12,8 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-bin
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04 AS llama-builder
 ARG LLAMA_REF=prism-b10687-5d80cff
 ARG LLAMA_COMMIT=5d80cff0b8cb9f2bf823cfc4e71e3abb97f290d6
-ARG CUDA_ARCHS="75;80;86;89;90;100;120"
+# Build only for the RTX 3090 (sm_86) selected for this endpoint.
+ARG CUDA_ARCHS="86"
 ARG BUILD_JOBS=4
 ARG MODEL_REPO
 ARG MODEL_REVISION
