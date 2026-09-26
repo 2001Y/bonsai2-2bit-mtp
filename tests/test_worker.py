@@ -1,101 +1,103 @@
-import importlib
+import os
 import subprocess
-import sys
-from types import SimpleNamespace
-
-import pytest
-
-
-def test_import_does_not_start_llama_server(monkeypatch):
-    sys.modules.pop("worker", None)
-
-    def unexpected_start(*args, **kwargs):
-        pytest.fail("importing worker.py must not spawn llama-server")
-
-    monkeypatch.setitem(sys.modules, "runpod", SimpleNamespace(serverless=SimpleNamespace(start=lambda *_args, **_kwargs: None)))
-    monkeypatch.setitem(sys.modules, "requests", SimpleNamespace())
-    monkeypatch.setattr(subprocess, "Popen", unexpected_start)
-    importlib.import_module("worker")
-    sys.modules.pop("worker", None)
+import tempfile
+import unittest
+from pathlib import Path
 
 
-def test_chat_messages_are_forwarded_as_non_streaming_chat_completion(monkeypatch):
-    worker = importlib.import_module("worker")
-    response_body = {"choices": [{"message": {"content": "ok"}}]}
-    response = SimpleNamespace(ok=True, json=lambda: response_body)
-    observed = {}
+ROOT = Path(__file__).parents[1]
+ENTRYPOINT = ROOT / "docker-entrypoint.sh"
 
-    def fake_post(url, *, json, timeout):
-        observed.update(url=url, body=json, timeout=timeout)
-        return response
 
-    monkeypatch.setattr(worker.requests, "post", fake_post)
-    result = worker.handler(
-        {
-            "input": {
-                "model": "caller-selected-model",
-                "messages": [{"role": "user", "content": "hello"}],
-                "max_tokens": 64,
+class LoadBalancerEntrypointTests(unittest.TestCase):
+    def run_entrypoint(self, overrides=None):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            capture_path = temp / "argv.bin"
+            server_path = temp / "fake-llama-server"
+            server_path.write_text(
+                "#!/bin/sh\nprintf '%s\\0' \"$@\" > \"$ARGS_CAPTURE\"\n",
+                encoding="utf-8",
+            )
+            server_path.chmod(0o755)
+            env = os.environ.copy()
+            for name in (
+                "PORT",
+                "PORT_HEALTH",
+                "MODEL_PATH",
+                "LLAMA_CTX_SIZE",
+                "LLAMA_SPEC_DRAFT_N_MAX",
+            ):
+                env.pop(name, None)
+            env.update(
+                {
+                    "ARGS_CAPTURE": str(capture_path),
+                    "LLAMA_SERVER_BIN": str(server_path),
+                }
+            )
+            if overrides:
+                env.update(overrides)
+
+            result = subprocess.run(
+                ["bash", str(ENTRYPOINT)],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            args = []
+            if capture_path.exists():
+                args = [
+                    value.decode()
+                    for value in capture_path.read_bytes().split(b"\0")
+                    if value
+                ]
+            return result, args
+
+    def test_serves_http_on_all_interfaces_and_uses_openai_model_alias(self):
+        result, args = self.run_entrypoint()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(args[args.index("-m") + 1], "/models/Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP.gguf")
+        self.assertEqual(args[args.index("--host") + 1], "0.0.0.0")
+        self.assertEqual(args[args.index("--port") + 1], "8080")
+        self.assertEqual(args[args.index("--alias") + 1], "ternary-bonsai-2-27b-abliterated-mtp")
+
+    def test_preserves_mtp_context_and_reasoning_settings(self):
+        result, args = self.run_entrypoint()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(args[args.index("-ngl") + 1], "99")
+        self.assertEqual(args[args.index("-fa") + 1], "on")
+        self.assertEqual(args[args.index("-c") + 1], "32768")
+        self.assertIn("--jinja", args)
+        self.assertEqual(args[args.index("--reasoning") + 1], "off")
+        self.assertEqual(args[args.index("--spec-type") + 1], "draft-mtp")
+        self.assertEqual(args[args.index("--spec-draft-n-max") + 1], "2")
+
+    def test_runpod_port_and_runtime_overrides_reach_llama_server(self):
+        result, args = self.run_entrypoint(
+            {
+                "PORT": "9090",
+                "MODEL_PATH": "/models/custom.gguf",
+                "LLAMA_CTX_SIZE": "8192",
+                "LLAMA_SPEC_DRAFT_N_MAX": "4",
             }
-        }
-    )
+        )
 
-    assert result == response_body
-    assert observed["url"].endswith("/v1/chat/completions")
-    assert observed["body"]["model"] == worker.MODEL_ALIAS
-    assert observed["body"]["stream"] is False
-    assert observed["body"]["messages"] == [{"role": "user", "content": "hello"}]
-    assert observed["body"]["max_tokens"] == 64
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(args[args.index("-m") + 1], "/models/custom.gguf")
+        self.assertEqual(args[args.index("--port") + 1], "9090")
+        self.assertEqual(args[args.index("-c") + 1], "8192")
+        self.assertEqual(args[args.index("--spec-draft-n-max") + 1], "4")
 
+    def test_rejects_a_health_port_that_differs_from_server_port(self):
+        result, args = self.run_entrypoint({"PORT": "8080", "PORT_HEALTH": "8081"})
 
-def test_prompt_shorthand_becomes_user_message(monkeypatch):
-    worker = importlib.import_module("worker")
-    captured = {}
-    response = SimpleNamespace(ok=True, json=lambda: {"choices": []})
-
-    def fake_post(_url, *, json, timeout):
-        captured.update(body=json)
-        return response
-
-    monkeypatch.setattr(worker.requests, "post", fake_post)
-    worker.handler({"input": {"prompt": "one prompt", "temperature": 0.25}})
-
-    assert captured["body"]["messages"] == [{"role": "user", "content": "one prompt"}]
-    assert captured["body"]["temperature"] == 0.25
-    assert captured["body"]["stream"] is False
+        self.assertEqual(result.returncode, 64)
+        self.assertIn("PORT_HEALTH", result.stderr)
+        self.assertEqual(args, [])
 
 
-def test_streaming_is_rejected_for_queued_job_responses():
-    worker = importlib.import_module("worker")
-
-    with pytest.raises(ValueError, match="streaming is not supported"):
-        worker.handler({"input": {"prompt": "hello", "stream": True}})
-
-
-def test_non_object_input_raises_type_error():
-    worker = importlib.import_module("worker")
-
-    with pytest.raises(TypeError, match="input must be an object"):
-        worker.handler({"input": ["not", "an", "object"]})
-
-
-def test_worker_starts_server_with_mtp_and_thinking_disabled(monkeypatch):
-    worker = importlib.import_module("worker")
-    monkeypatch.setenv("MODEL_PATH", "/models/test.gguf")
-    captured = {}
-    fake_process = object()
-
-    def fake_popen(command, *, stdin):
-        captured.update(command=command, stdin=stdin)
-        return fake_process
-
-    monkeypatch.setattr(worker.subprocess, "Popen", fake_popen)
-    result = worker.start_llama_server()
-
-    assert result is fake_process
-    command = captured["command"]
-    assert command[command.index("-m") + 1] == "/models/test.gguf"
-    assert "--spec-type" in command and command[command.index("--spec-type") + 1] == "draft-mtp"
-    assert "--spec-draft-n-max" in command
-    assert "--reasoning" in command and command[command.index("--reasoning") + 1] == "off"
-    assert "--chat-template-kwargs" not in command
+if __name__ == "__main__":
+    unittest.main()

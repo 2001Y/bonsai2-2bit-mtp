@@ -1,13 +1,10 @@
 # syntax=docker/dockerfile:1.8
 ARG CUDA_VERSION=12.8.1
-ARG UV_VERSION=0.12.19
 ARG MODEL_REPO=BoldingBuilds/Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP-GGUF
 ARG MODEL_REVISION=25bdc69496884b958428e722e2c3d15bf0e3857d
 ARG MODEL_FILENAME=Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP.gguf
 ARG MODEL_SHA256=7aa43b9a42f5bebc170d54f45657a7ccad841dd1f5b94434b107945740b02e86
 ARG PATCH_SHA256=ad6a3fac748a69d4d620906f534a01c36310e90a7f45adbe550ebc2f68718fba
-
-FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-bin
 
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04 AS llama-builder
 ARG LLAMA_REF=prism-b10687-5d80cff
@@ -68,40 +65,31 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
 
 FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu24.04 AS runpod-serverless
 ARG MODEL_FILENAME
-COPY --from=uv-bin /uv /uvx /bin/
 
 WORKDIR /app
-ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
-    UV_PYTHON_DOWNLOADS=0 \
-    UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1
-
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates libgomp1 passwd python3 python3-venv \
+      ca-certificates libgomp1 passwd \
     && groupadd --gid 10001 worker \
     && useradd --uid 10001 --gid worker --create-home --home-dir /home/worker worker \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev --no-install-project
-
-COPY worker.py /app/worker.py
 COPY LICENSE /licenses/Apache-2.0.txt
 COPY NOTICE /licenses/NOTICE
 COPY --from=llama-builder /opt/llama /opt/llama
 COPY --from=llama-builder /licenses/llama.cpp-MIT.txt /licenses/llama.cpp-MIT.txt
 COPY --from=model /models/${MODEL_FILENAME} /models/${MODEL_FILENAME}
+COPY --chmod=0755 docker-entrypoint.sh /app/docker-entrypoint.sh
 
-ENV PATH="/opt/venv/bin:/opt/llama/bin:${PATH}" \
+ENV PATH="/opt/llama/bin:${PATH}" \
     HOME=/home/worker \
     LD_LIBRARY_PATH="/opt/llama/lib:/usr/local/cuda/lib64" \
-    PYTHONUNBUFFERED=1 \
     MODEL_PATH=/models/${MODEL_FILENAME} \
-    LLAMA_PORT=8080 \
+    PORT=8080 \
+    PORT_HEALTH=8080 \
+    HEALTH_CHECK_PATH=/health \
     LLAMA_CTX_SIZE=32768 \
-    LLAMA_SPEC_DRAFT_N_MAX=2 \
-    LLAMA_STARTUP_TIMEOUT=900 \
-    LLAMA_REQUEST_TIMEOUT=900
+    LLAMA_SPEC_DRAFT_N_MAX=2
 
+EXPOSE 8080
 USER worker:worker
-ENTRYPOINT ["/opt/venv/bin/python", "-u", "/app/worker.py"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
