@@ -1,0 +1,16 @@
+diff --git a/tools/server/server-http.cpp b/tools/server/server-http.cpp
+--- a/tools/server/server-http.cpp
++++ b/tools/server/server-http.cpp
+@@ -253,8 +253,12 @@
+     auto middleware_server_state = [this](const httplib::Request & req, httplib::Response & res) {
+         if (!is_ready.load()) {
+             if (frontend_paths.count(req.path)) {
+                 return true; // frontend asset, allow it to load and show "loading"
+             }
++            if (req.path == "/health" || req.path == "/v1/health") {
++                res.status = 204;
++                return false;
++            }
+             // no endpoints are allowed to be accessed when the server is not ready
+             // this is to prevent any data races or inconsistent states
+             res.status = 503;

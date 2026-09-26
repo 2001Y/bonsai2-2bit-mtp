@@ -11,8 +11,8 @@ This is an integration project, not an official RunPod, PrismML, Qwen, or Boldin
 - **Platform:** Linux `amd64` container on an NVIDIA CUDA GPU.
 - **CUDA image:** NVIDIA CUDA 12.8.1, Ubuntu 24.04.
 - **Runtime:** [`PrismML-Eng/llama.cpp`](https://github.com/PrismML-Eng/llama.cpp/tree/prism-b10687-5d80cff) at tag `prism-b10687-5d80cff`, verified to resolve to commit `5d80cff0b8cb9f2bf823cfc4e71e3abb97f290d6`.
-- **MTP fix:** `0001-qwen35-mtp-hadamard-inverse.patch` from the pinned model revision, SHA-256 checked during image build.
-- **Inference:** native `draft-mtp`, one llama-server slot, Flash Attention, 32K default context, and `--reasoning off`.
+- **Patches:** `0001-qwen35-mtp-hadamard-inverse.patch` from the pinned model revision plus [`patches/runpod-health-initializing.patch`](patches/runpod-health-initializing.patch), which adapts only pre-ready health responses to RunPod's `204 Initializing` contract on the pinned llama.cpp revision.
+- **Inference:** native `draft-mtp`, one llama-server slot, Flash Attention, 64K default context, and reasoning disabled for this model. The pinned GGUF metadata advertises a 262,144-token maximum; the 64K RunPod setting is chosen to meet Hermes Agent's 64,000-token minimum and still requires a live 24 GB RTX 3090 fit check.
 - **Model:** `Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP.gguf`, 7,657,489,696 bytes (about 7.66 GB), SHA-256 `7aa43b9a42f5bebc170d54f45657a7ccad841dd1f5b94434b107945740b02e86`.
 - **Runtime dependencies:** no Python interpreter, RunPod queue SDK, or HTTP proxy; the native `llama-server` process serves the API.
 
@@ -27,7 +27,9 @@ The container listens on `0.0.0.0:8080` and serves llama.cpp's OpenAI-compatible
 - Chat: `POST /v1/chat/completions`
 - Served model ID: `ternary-bonsai-2-27b-abliterated-mtp`
 
-The pinned llama.cpp revision also documents a Responses API route, but this repository targets Chat Completions for the initial Hermes integration. No live RunPod or Hermes request has been verified. Streaming and request-duration behavior through RunPod's load balancer remain untested.
+While the model is loading, `/health` and `/v1/health` return a bodyless `204`; other API routes remain `503` until the model is ready, when health returns `200`. This matches RunPod's documented Load Balancer status contract and avoids treating an unready inference route as healthy.
+
+The pinned llama.cpp revision also documents a Responses API route, but this repository targets Chat Completions for the initial Hermes integration. Use Hermes' standard named custom provider with transport `chat_completions`, the served model ID above, 65,536 context tokens, and `chat_template_kwargs.enable_thinking: false` (the pinned model card warns that thinking mode can produce empty answers). Verify health, model discovery, and one small inference through Hermes before treating a deployment as ready. Streaming and request-duration behavior through RunPod's load balancer remain untested.
 
 RunPod Load Balancing forwards HTTP requests to the worker. **Choose endpoint type `Load Balancer`, not `Queue`**; a queue endpoint instead expects RunPod job routes and cannot directly proxy these OpenAI API paths.
 
@@ -39,9 +41,10 @@ RunPod's [GitHub integration](https://docs.runpod.io/serverless/workers/github-i
 2. Select endpoint type **Load Balancer**.
 3. Choose the RTX 3090 / `sm_86` compatible target for this build. The default `CUDA_ARCHS=86` is not a claim of support for other GPU architectures.
 4. Configure the container's HTTP port as `8080`; set `PORT=8080`, `PORT_HEALTH=8080`, and health-check path `/health` (the image supplies these defaults).
-5. For a cost-controlled first deployment, use minimum workers `0` and maximum workers `1`; keep endpoint authentication enabled. Do not put a RunPod key in this repository.
+5. Set container disk to `16 GB`; the pinned model file alone is 7,657,489,696 bytes (about 7.66 GB), and the runtime image needs additional room for its base layers and files. RunPod documents container-disk storage as included in worker runtime cost.
+6. For a cost-controlled first deployment, use minimum workers `0` and maximum workers `1`; keep endpoint authentication enabled. Do not put a RunPod key in this repository.
 
-A GitHub push only updates source. It does not create an endpoint or configure Hermes. RunPod performs the image build/deploy after you initiate that flow in its console. The Dockerfile downloads the pinned 7.66 GB model and compiles CUDA code **on RunPod's build service**; it does not download the model to this Mac. RunPod currently documents a 30-minute Docker build timeout for GitHub builds, and this full build has not been verified to fit that limit.
+A GitHub push only updates source. It does not create an endpoint or configure Hermes. RunPod performs the image build/deploy through its GitHub integration; trigger the build from the authenticated console. The Dockerfile downloads the pinned 7.66 GB model and compiles CUDA code **on RunPod's build service**; it does not download the model to this Mac. The earlier image revision built successfully, but RunPod documents a 30-minute Docker-build limit and this updated revision still needs its own build. The published RTX 3090 worker-rate estimate does not include any unverified build charge.
 
 RunPod documents a 2-minute wait for an available worker, a 5.5-minute per-request processing limit, and a 30 MB request/response limit for Load Balancing. The cold start and typical generation time for this 7.66 GB model have not been measured; with minimum workers `0`, a first request may time out while the worker starts. Do not send a test request until you have reviewed the possible GPU charge and chosen to start a worker.
 

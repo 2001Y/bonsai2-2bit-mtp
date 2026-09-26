@@ -21,6 +21,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
+COPY patches/runpod-health-initializing.patch /tmp/runpod-health-initializing.patch
 RUN git clone --depth 1 --filter=blob:none --branch "${LLAMA_REF}" \
       https://github.com/PrismML-Eng/llama.cpp.git llama.cpp \
     && test "$(git -C llama.cpp rev-parse HEAD)" = "${LLAMA_COMMIT}" \
@@ -30,6 +31,8 @@ RUN git clone --depth 1 --filter=blob:none --branch "${LLAMA_REF}" \
     && echo "${PATCH_SHA256}  /tmp/0001-qwen35-mtp-hadamard-inverse.patch" | sha256sum -c - \
     && git -C llama.cpp apply /tmp/0001-qwen35-mtp-hadamard-inverse.patch \
     && rm /tmp/0001-qwen35-mtp-hadamard-inverse.patch \
+    && git -C llama.cpp apply /tmp/runpod-health-initializing.patch \
+    && rm /tmp/runpod-health-initializing.patch \
     && install -D -m 0644 /src/llama.cpp/LICENSE /licenses/llama.cpp-MIT.txt
 
 WORKDIR /src/llama.cpp
@@ -87,7 +90,7 @@ ENV PATH="/opt/llama/bin:${PATH}" \
     PORT=8080 \
     PORT_HEALTH=8080 \
     HEALTH_CHECK_PATH=/health \
-    LLAMA_CTX_SIZE=32768 \
+    LLAMA_CTX_SIZE=65536 \
     LLAMA_SPEC_DRAFT_N_MAX=2
 
 EXPOSE 8080

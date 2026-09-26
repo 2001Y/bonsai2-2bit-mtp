@@ -4,7 +4,7 @@ set -euo pipefail
 : "${MODEL_PATH:=/models/Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP.gguf}"
 : "${PORT:=8080}"
 : "${PORT_HEALTH:=$PORT}"
-: "${LLAMA_CTX_SIZE:=32768}"
+: "${LLAMA_CTX_SIZE:=65536}"
 : "${LLAMA_SPEC_DRAFT_N_MAX:=2}"
 : "${LLAMA_SERVER_BIN:=/opt/llama/bin/llama-server}"
 

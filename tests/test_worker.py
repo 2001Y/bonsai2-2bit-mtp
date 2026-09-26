@@ -69,7 +69,7 @@ class LoadBalancerEntrypointTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(args[args.index("-ngl") + 1], "99")
         self.assertEqual(args[args.index("-fa") + 1], "on")
-        self.assertEqual(args[args.index("-c") + 1], "32768")
+        self.assertEqual(args[args.index("-c") + 1], "65536")
         self.assertIn("--jinja", args)
         self.assertEqual(args[args.index("--reasoning") + 1], "off")
         self.assertEqual(args[args.index("--spec-type") + 1], "draft-mtp")
