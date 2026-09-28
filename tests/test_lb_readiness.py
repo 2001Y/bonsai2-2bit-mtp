@@ -30,6 +30,14 @@ class LoadBalancerReadinessTests(unittest.TestCase):
         self.assertIn("res.status = 503;", patch_text)
         self.assertIn("if (!is_ready.load())", patch_text)
 
+    def test_runpod_ping_is_public_and_handles_startup_and_ready_states(self):
+        patch_path = ROOT / "patches" / "runpod-health-initializing.patch"
+        patch_text = patch_path.read_text() if patch_path.is_file() else ""
+
+        self.assertIn('ctx_http.get ("/ping",', patch_text)
+        self.assertRegex(patch_text, r'(?m)^\+\s+"/ping",\s*$')
+        self.assertIn('req.path == "/ping"', patch_text)
+
     def test_server_context_meets_hermes_minimum_by_default(self):
         dockerfile = (ROOT / "Dockerfile").read_text()
         entrypoint = (ROOT / "docker-entrypoint.sh").read_text()

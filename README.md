@@ -11,7 +11,7 @@ This is an integration project, not an official RunPod, PrismML, Qwen, or Boldin
 - **Platform:** Linux `amd64` container on an NVIDIA CUDA GPU.
 - **CUDA image:** NVIDIA CUDA 12.8.1, Ubuntu 24.04.
 - **Runtime:** [`PrismML-Eng/llama.cpp`](https://github.com/PrismML-Eng/llama.cpp/tree/prism-b10687-5d80cff) at tag `prism-b10687-5d80cff`, verified to resolve to commit `5d80cff0b8cb9f2bf823cfc4e71e3abb97f290d6`.
-- **Patches:** `0001-qwen35-mtp-hadamard-inverse.patch` from the pinned model revision plus [`patches/runpod-health-initializing.patch`](patches/runpod-health-initializing.patch), which adapts only pre-ready health responses to RunPod's `204 Initializing` contract on the pinned llama.cpp revision.
+- **Patches:** `0001-qwen35-mtp-hadamard-inverse.patch` from the pinned model revision plus [`patches/runpod-health-initializing.patch`](patches/runpod-health-initializing.patch), which exposes `/ping` as a public alias for the native `/health` handler and returns `204 Initializing` for both paths until the pinned llama.cpp server is ready.
 - **Inference:** native `draft-mtp`, one llama-server slot, Flash Attention, 64K default context, and reasoning disabled for this model. The pinned GGUF metadata advertises a 262,144-token maximum; the 64K RunPod setting is chosen to meet Hermes Agent's 64,000-token minimum and still requires a live 24 GB RTX 3090 fit check.
 - **Model:** `Ternary-Bonsai-2-27B-Abliterated-PQ2_0-MTP.gguf`, 7,657,489,696 bytes (about 7.66 GB), SHA-256 `7aa43b9a42f5bebc170d54f45657a7ccad841dd1f5b94434b107945740b02e86`.
 - **Runtime dependencies:** no Python interpreter, RunPod queue SDK, or HTTP proxy; the native `llama-server` process serves the API.

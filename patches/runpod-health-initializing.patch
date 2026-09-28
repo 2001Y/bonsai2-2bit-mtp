@@ -1,13 +1,28 @@
+diff --git a/tools/server/server.cpp b/tools/server/server.cpp
+--- a/tools/server/server.cpp
++++ b/tools/server/server.cpp
+@@ -234,2 +234,3 @@
+     ctx_http.get ("/health",                   ex_wrapper(routes.get_health)); // public endpoint (no API key check)
++    ctx_http.get ("/ping",                     ex_wrapper(routes.get_health)); // public endpoint (no API key check)
+     ctx_http.get ("/v1/health",                ex_wrapper(routes.get_health)); // public endpoint (no API key check)
 diff --git a/tools/server/server-http.cpp b/tools/server/server-http.cpp
 --- a/tools/server/server-http.cpp
 +++ b/tools/server/server-http.cpp
-@@ -253,8 +253,12 @@
+@@ -196,6 +196,7 @@
+     // Public endpoints - API routes plus all embedded UI assets
+     static const std::unordered_set<std::string> get_public_endpoints = []() {
+         std::unordered_set<std::string> endpoints {
+             "/health",
++            "/ping",
+             "/v1/health",
+         };
+@@ -253,8 +254,12 @@
      auto middleware_server_state = [this](const httplib::Request & req, httplib::Response & res) {
          if (!is_ready.load()) {
              if (frontend_paths.count(req.path)) {
                  return true; // frontend asset, allow it to load and show "loading"
              }
-+            if (req.path == "/health" || req.path == "/v1/health") {
++            if (req.path == "/health" || req.path == "/ping" || req.path == "/v1/health") {
 +                res.status = 204;
 +                return false;
 +            }
