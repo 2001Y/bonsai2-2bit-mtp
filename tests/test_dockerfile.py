@@ -21,6 +21,13 @@ class DockerfileTests(unittest.TestCase):
             build_section,
         )
 
+    def test_llama_cpu_build_avoids_builder_specific_native_isa(self):
+        build_section = self.content.split("WORKDIR /src/llama.cpp", 1)[1].split(
+            "\nFROM --platform", 1
+        )[0]
+
+        self.assertIn("-DGGML_NATIVE=OFF", build_section)
+
     def test_image_starts_the_direct_http_entrypoint(self):
         self.assertIn(
             "COPY --chmod=0755 docker-entrypoint.sh /app/docker-entrypoint.sh", self.content

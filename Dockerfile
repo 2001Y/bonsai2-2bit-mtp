@@ -36,8 +36,10 @@ RUN git clone --depth 1 --filter=blob:none --branch "${LLAMA_REF}" \
     && install -D -m 0644 /src/llama.cpp/LICENSE /licenses/llama.cpp-MIT.txt
 
 WORKDIR /src/llama.cpp
+# RunPod build hosts and serverless worker hosts may have different CPU instruction sets.
 RUN cmake -S . -B build \
       -DGGML_CUDA=ON \
+      -DGGML_NATIVE=OFF \
       -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHS}" \
       -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
       -DLLAMA_CURL=OFF \
